@@ -4,10 +4,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
-    database_url: str | None = None
-    jwt_secret: str | None = None
+    database_url: str = ""
+    jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440
+    jwt_expire_hours: int = 24
     cors_origins: str = "http://localhost:3000"
 
     model_config = {
@@ -16,4 +16,3 @@ class Settings(BaseSettings):
     }
 
 settings = Settings()
-print(settings)

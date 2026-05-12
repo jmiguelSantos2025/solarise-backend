@@ -1,21 +1,30 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from app.schemas.generation import *
+from app.routers.auth import get_user
+from app.services.hash_service import landlord_calculator
 
 contracts = {}
 
 router = APIRouter()
 
-@router.post("/preview")
-def preview_dashboard(item: Preview_Request):
-    if item.contract_ID in contracts:
-        return contracts[item.contract_ID]
-    else:
-        return {"Error": "Contract doesn't exists"}
+@router.post("/preview", response_model=Preview_Response)
+def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_user)):
+    contract = contracts.get(item.contract_ID)
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    
+    generated_energy = item.generated_energy
+    tariff = contract["tariff"]
+    percentage = contract["landlord_percentage"]
+    value = landlord_calculator(generated_energy, tariff, percentage)
 
-@router.post("/")
-def create_contract(item: Preview_Request):
-    if item.contract_ID in contracts:
-        return {"Error": "Contract already exists"}
-    else:
-        contracts[item.contract_ID] = item
-        return {"Sucess": "Contract registered"}
+    return Preview_Response(
+        generated_energy=str(generated_energy),
+        tariff=str(tariff),
+        landlord_percentage=str(percentage),
+        loss_factor="0.95",
+        formula=f"{generated_energy} × {tariff} × 0.95 × {percentage}",
+        value=str(value),
+        date=item.date.isoformat(),
+        saved=False
+    )

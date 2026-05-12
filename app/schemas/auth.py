@@ -1,24 +1,12 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import re, uuid
 
-class Register_Request(BaseModel):
+class Register_Request(BaseModel): #Done!
     ID: uuid.UUID = Field(default_factory=uuid.uuid7)
-    name: str = Field(
-        min_length=2,
-        max_length=100,
-        examples=["SolarTech", "Energy COM"],
-        )
-    email: EmailStr = Field(
-        examples=["contact@solartech.com", "contact@energycom.com"],
-    )
-    password: str = Field(
-        min_length=8,
-        examples=["Password123@$", "K&bt7T4m!@3bs*"],
-        description="The password must have 8 characters, special symbols, numbers and lower and upper case letras"
-    )
-    role: str = Field(
-        examples=["Administrator", "Analyst"]
-    )
+    name: str = Field(min_length=2, max_length=100, examples=["John Doe", "Jane Doe"])
+    email: EmailStr = Field(examples=["john.doe@contact.com", "jane.doe@contact.com"])
+    password: str = Field(min_length=8, examples=["Password0@$", "K&bt7T4m!@3bs*"])
+    role: str = Field(examples=["Administrator", "Analyst"])
 
     @field_validator("password")
     @classmethod
@@ -28,42 +16,25 @@ class Register_Request(BaseModel):
             return password
         return False
 
-class Login_Request(BaseModel):
-    email: EmailStr = Field(
-        examples=["contact@solartech.com", "contact@energycom.com"]
-    )
-    password: str = Field(
-        examples=["Password123@$"]
-    )
-
-class Invite_Request(BaseModel):
-    name: str = Field(
-        examples=["John", "Jane"]
-    )
-    email: EmailStr = Field(
-        examples=["john@gmail.com", "jane@gmail.com"],
-    )
-
-class Refresh_Request(BaseModel):
-    refresh_token: str = Field(
-        examples=["NYvt238B92j2HF27jG12H1kd03..."]
-    )
+class Login_Request(BaseModel): #Done!
+    email: EmailStr = Field(examples=["john.doe@contact.com", "jane.doe@contact.com"])
+    password: str = Field(examples=["Password0@$"])
 
 
-
-class User_Response(BaseModel):
-    ID: int
+class User_Response(BaseModel): #Done!
+    ID: str
     name: str
     email: str
     org_id: str
     role: str
+    model_config={"from_attributes": True}
 
-class Token_Response(BaseModel):
+class Token_Response(BaseModel): #Done!
     access_token: str
     refresh_token: str
-    token_type: str
-    expires_in: int
+    token_type: str = "bearer"
+    expires_in: int = 86400
 
-class Message_Response(BaseModel):
+class Message_Response(BaseModel): #Done!
     message: str
-    sucess: bool = True
+    success: bool = True
