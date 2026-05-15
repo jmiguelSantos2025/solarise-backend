@@ -1,16 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine
+from database.database import engine
+from app.core.config import settings
 from sqlmodel import SQLModel
 from app.routers import auth, generation
-import contratos
-import dashboard
+from app.models import contratos, dashboard
 
 app = FastAPI(title="Solarize API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

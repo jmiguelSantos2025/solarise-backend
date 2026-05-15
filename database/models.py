@@ -32,7 +32,7 @@ class User(SQLModel, table=True):
     organization_id: uuid.UUID     = Field(foreign_key='organizations.id')
     created_at:      datetime      = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at:      datetime      = Field(default_factory=lambda: datetime.now(timezone.utc))
-
+    password_hash: Optional[str] = Field(default=None, max_length=255)
     organization: Optional[Organization] = Relationship(back_populates='users')
 
 
@@ -46,9 +46,12 @@ class Contrato(SQLModel, table=True):
     start_date:      date
     end_date:        Optional[date]   = Field(default=None)
     value_kwh:       float            = Field(decimal_places=4)
+    percentual_locador: Optional[float] = Field(default=None, decimal_places=4)
     status:          str              = Field(default='active', max_length=50)
     created_at:      datetime         = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at:      datetime         = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 
     organization: Optional[Organization]    = Relationship(back_populates='contratos')
     geracoes:     list['GeracaoEnergia']    = Relationship(back_populates='contrato')

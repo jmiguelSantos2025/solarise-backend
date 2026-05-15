@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session,select
 from decimal import Decimal, ROUND_HALF_UP
-from database import get_session
-from models import Contrato, GeracaoEnergia
+from database.database import get_session
+from database.models import Contrato, GeracaoEnergia
 from app.routers.auth import get_user
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -14,7 +14,7 @@ def dashboard_locador(
     current_user = Depends(get_user),
 ):
     contrato = session.exec(
-        select(Contrato).where(Contrato.org_id == current_user.org_id)
+        select(Contrato).where(Contrato.organization_id == current_user.organization_id)
     ).first()
     if not contrato:
         return {"mes_atual": None, "serie_historica": []}
@@ -25,7 +25,7 @@ def dashboard_locador(
     if not geracoes:
         return {"mes_atual": None, "serie_historica": []}
     def calc(g):
-        v = (Decimal(str(g.energia_kwh))*contrato.tarifa_kwh*contrato.percentual_locador*Decimal("0.95"))
+        v = (Decimal(str(g.energia_kwh)) * Decimal(str(contrato.value_kwh)) * Decimal(str(contrato.percentual_locador or 0)) * Decimal("0.95"))
         return float(v.quantize(Decimal("0.01"),rounding = ROUND_HALF_UP))
     ultimas = geracoes[-1]
     return {

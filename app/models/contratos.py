@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from uuid import UUID
-from database import get_session
-from models import Contrato, GeracaoEnergia
-from schemas import ContratoCreate, ContratoRead
+from database.database import get_session
+from database.models import Contrato, GeracaoEnergia
+from app.models.schemas import ContratoCreate, ContratoRead
 from app.routers.auth import get_user
 
 router = APIRouter(prefix="/contratos", tags=["contratos"])
@@ -12,9 +12,9 @@ router = APIRouter(prefix="/contratos", tags=["contratos"])
 def criar_contrato(
     payload: ContratoCreate,
     session: Session = Depends(get_session),
-    # current_user = Depends(get_user)
+    current_user = Depends(get_user)
 ):
-    contrato = Contrato(**payload.model_dump(), org_id = current_user.org_id)
+    contrato = Contrato(**payload.model_dump(), organization_id=current_user.organization_id)
     session.add(contrato)
     session.commit()
     session.refresh(contrato)
@@ -24,13 +24,13 @@ def criar_contrato(
 def obter_contrato(
     contrato_id: UUID,
     session: Session = Depends(get_session),
-    current_user = Depends(get_session),
+    current_user = Depends(get_user),
 
 ):
     contrato = session.get(Contrato, contrato_id)
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato nao encontrado")
-    if contrato.org_id != current_user.org_id:
+    if contrato.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return contrato
 
@@ -44,7 +44,7 @@ def atualizar_contrato(
     contrato = session.get(Contrato, contrato_id)
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato nao encontrado")
-    if contrato.org_id != current_user.org_id:
+    if contrato.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     tem_geracao = session.exec(

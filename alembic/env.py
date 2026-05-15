@@ -5,13 +5,13 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 from dotenv import load_dotenv
+from sqlmodel import SQLModel
 
-# Adiciona a raiz do projeto ao path para encontrar o models.py
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
-from models import Base
+import database.models  # noqa: F401 — registra os modelos no SQLModel.metadata
 
 config = context.config
 
@@ -20,7 +20,7 @@ if config.config_file_name is not None:
 
 config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
 
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:

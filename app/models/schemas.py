@@ -2,17 +2,18 @@ from pydantic import BaseModel
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
+from typing import Optional
 
 class ContratoCreate(BaseModel):
-    numero: str
-    decricao: str | None = None
-    data_inicio: date
-    data_fim: date | None = None
+    number: str
+    description: Optional[str] = None
+    start_date: date
+    end_date: date | None = None
     percentual_locador: Decimal
-    tarifa_kwh: Decimal
+    value_kwh: Decimal
 
 class ContratoRead(ContratoCreate):
     id: UUID
-    org_id: UUID
+    organization_id: UUID
     class Config:
         from_attributes = True
