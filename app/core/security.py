@@ -18,6 +18,6 @@ def create_token(data: dict, expire: int = 24) -> str: #Done!
 
 def verify_token(token: str) -> dict | None: #Done!
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        return jwt.decode(token, settings.jwt_secret, algorithms=settings.jwt_algorithm)
     except JWTError:
         return None

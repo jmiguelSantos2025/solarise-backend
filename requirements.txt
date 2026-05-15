@@ -1,9 +1,10 @@
 fastapi==0.111.0
 uvicorn==0.30.0
 pydantic==2.7.0
-pydantic-settings==2.13.3
+pydantic.settings==2.13.3
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==4.0.1
+passalib[context]==1.7.4
 python-dotenv==1.0.0
 sqlmodel==0.0.18
 alembic==1.13.0
