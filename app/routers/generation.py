@@ -3,7 +3,7 @@ from app.schemas.generation import *
 from app.routers.auth import get_user
 from app.services.hash_service import landlord_calculator
 
-contracts = {}
+contracts = {"ctrt-001":{"tariff": 1.0, "landlord_percentage": 30.0}}
 
 router = APIRouter()
 
@@ -12,12 +12,13 @@ def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_us
     contract = contracts.get(item.contract_ID)
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found.")
-    
-    generated_energy = item.generated_energy
-    tariff = contract["tariff"]
-    percentage = contract["landlord_percentage"]
-    value = landlord_calculator(generated_energy, tariff, percentage)
-
+    try:
+        generated_energy = item.generated_energy
+        tariff = contract["tariff"]
+        percentage = contract["landlord_percentage"]
+        value = landlord_calculator(generated_energy, tariff, percentage)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"{e}")
     return Preview_Response(
         generated_energy=str(generated_energy),
         tariff=str(tariff),

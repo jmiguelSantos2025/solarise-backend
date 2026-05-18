@@ -38,8 +38,8 @@ def register(user: Register_Request): #Done!
             "org_id": org_id,
             "role": user.role
         }
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{e}")
 
     return Message_Response(message=f"Installer {user.name} registered sucessfully", success=True)
     
@@ -59,8 +59,8 @@ def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
             "org_id": user_data["org_id"],
             "role": user_data["role"]
         }
-    except:
-        raise HTTPException(status_code=500, detail="Error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{e}")
 
     return Token_Response(
         access_token=create_token(payload, 24),
