@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, generation
+from app.routers import auth, generation, pdf_router
 from app.models import contratos, dashboard
 from app.core.config import settings
 
@@ -32,6 +32,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(generation.router, prefix="/generation", tags=["Generation"])
+app.include_router(pdf_router.router)
 app.include_router(contratos.router)
 app.include_router(dashboard.router)
 

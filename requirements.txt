@@ -10,3 +10,4 @@ email-validator>=2.0.0
 sqlmodel==0.0.18
 alembic==1.13.0
 slowapi==0.1.9
+reportlab>=4.0.0
