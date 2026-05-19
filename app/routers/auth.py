@@ -1,11 +1,12 @@
 import uuid
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from app.schemas.auth import *
-from app.core.security import *
+
+from app.core.security import create_hash_password, create_token, verify_hash_password, verify_token
+from app.schemas.auth import Message_Response, Register_Request, Token_Response, User_Response
 from database.database import get_session
-from database.models import User, Organization
+from database.models import Organization, User
 
 router = APIRouter()
 oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -21,29 +22,26 @@ def get_user(token: str = Depends(oauth2), session: Session = Depends(get_sessio
         )
     user_id = data.get("ID")
     if not user_id:
-        raise HTTPException(status_code=401, detail="Malformed token.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token.")
     user = session.get(User, uuid.UUID(user_id))
     if not user:
-        raise HTTPException(status_code=401, detail="User not found.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
     return user
 
 
 @router.post("/register", response_model=Message_Response)
 def register(payload: Register_Request, session: Session = Depends(get_session)):
     if session.exec(select(User).where(User.email == payload.email)).first():
-        raise HTTPException(status_code=409, detail="Email already registered.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+
     org = session.exec(select(Organization).where(Organization.cnpj == payload.org_cnpj)).first()
     if not org:
-        org = Organization(
-            name=payload.org_name,
-            cnpj=payload.org_cnpj,
-            email=payload.org_email,
-        )
+        org = Organization(name=payload.org_name, cnpj=payload.org_cnpj, email=payload.org_email)
         session.add(org)
         session.flush()
+
     try:
         user = User(
-            id=payload.ID,
             email=payload.email,
             name=payload.name,
             role=payload.role,
@@ -52,9 +50,13 @@ def register(payload: Register_Request, session: Session = Depends(get_session))
         )
         session.add(user)
         session.commit()
-    except Exception:
+    except Exception as exc:
         session.rollback()
-        raise HTTPException(status_code=500, detail="Erro ao criar usuário.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao criar usuário.",
+        ) from exc
+
     return Message_Response(message=f"Usuário {payload.name} registrado com sucesso.", success=True)
 
 
@@ -62,7 +64,8 @@ def register(payload: Register_Request, session: Session = Depends(get_session))
 def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     user = session.exec(select(User).where(User.email == form.username)).first()
     if not user or not verify_hash_password(form.password, user.password_hash or ""):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas.")
+
     payload = {
         "name": user.name,
         "ID": str(user.id),

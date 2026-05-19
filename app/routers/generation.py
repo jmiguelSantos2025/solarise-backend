@@ -1,8 +1,10 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from decimal import Decimal
-from app.schemas.generation import *
+
 from app.routers.auth import get_user
+from app.schemas.generation import Preview_Request, Preview_Response
 from app.services.hash_service import landlord_calculator
 from database.database import get_session
 from database.models import Contrato, User
@@ -16,9 +18,15 @@ def preview_dashboard(
     current_user: User = Depends(get_user),
     session: Session = Depends(get_session),
 ):
-    contract = session.exec(select(Contrato).where(Contrato.number == item.contract_ID)).first()
+    contract = session.exec(
+        select(Contrato).where(
+            Contrato.number == item.contract_ID,
+            Contrato.organization_id == current_user.organization_id,
+        )
+    ).first()
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found.")
+
     tariff = Decimal(str(contract.value_kwh))
     percentage = Decimal(str(contract.percentual_locador or 0))
     value = landlord_calculator(item.generated_energy, tariff, percentage)
