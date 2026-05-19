@@ -18,13 +18,13 @@ def get_user(token: str = Depends(oauth2)) -> dict: #Done!
             headers={"WWW-Authenticate": "Bearer"},
         )
     if "ID" not in data:
-        raise HTTPException(status_code=401, detail="Malformed token.")
+        raise HTTPException(status_code=401, detail="Error: Malformed token.")
     return data
 
 @router.post("/register", response_model=Message_Response)
 def register(user: Register_Request): #Done!
     if user.email in users:
-        raise HTTPException(status_code=409, detail="Email already registered.")
+        raise HTTPException(status_code=409, detail="Error :Email already registered.")
     
     org_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())
@@ -39,7 +39,7 @@ def register(user: Register_Request): #Done!
             "role": user.role
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{e}")
+        raise HTTPException(status_code=500, detail=f"Error: {e}")
 
     return Message_Response(message=f"Installer {user.name} registered sucessfully", success=True)
     
@@ -49,9 +49,9 @@ def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
     user_data = users.get(user.username)
 
     if not user_data :
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="Error: User not found")
     if not verify_hash_password(user.password, user_data["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials.")
+        raise HTTPException(status_code=401, detail="Error: Invalid credentials.")
     try:
         payload = {
             "name": user_data["name"],
@@ -60,7 +60,7 @@ def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
             "role": user_data["role"]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{e}")
+        raise HTTPException(status_code=500, detail=f"Error: {e}")
 
     return Token_Response(
         access_token=create_token(payload, 24),
@@ -69,13 +69,13 @@ def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
         expires_in=86400
     )
 
-@router.get("/profile", response_model=User_Response)
+@router.get("/profile", response_model=User_Response) #Done!
 def profile(current_user: dict = Depends(get_user)):
 
     target_ID = current_user.get("ID")
 
     if not target_ID:
-        raise HTTPException(status_code=401, detail="Token payload missing ID")
+        raise HTTPException(status_code=401, detail="Error: Token payload missing ID")
 
     for user in users.values():
         if user["ID"] == target_ID:
@@ -86,4 +86,4 @@ def profile(current_user: dict = Depends(get_user)):
                 org_id=user["org_id"],
                 role=user["role"]
             )
-    raise HTTPException(status_code=404, detail="User not found.")
+    raise HTTPException(status_code=404, detail="Error: User not found.")
