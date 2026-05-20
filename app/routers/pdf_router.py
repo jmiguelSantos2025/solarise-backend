@@ -1,25 +1,24 @@
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from sqlmodel import Session, select
 
 from app.routers.auth import get_user
 from app.services.pdf_service import DadosPDF, gerar_pdf
-from database.models import User
+from database.database import get_session
+from database.models import Contrato, GeracaoEnergia, User
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 
-# Fixed data for S3 stub. Replace with DB query in S4.
-_STUB: DadosPDF = DadosPDF(
-    locador="Joao Silva",
-    mes_ref="marco/2026",
-    energia_kwh=Decimal("38500"),
-    tarifa_kwh=Decimal("0.85"),
-    percentual_locador=Decimal("0.30"),
-    desconto_scee=Decimal("0.95"),
-    hash_sha256="a3f8c2e1d4b7f9a0e2c5d8b1f4a7c0e3d6b9f2a5c8e1d4b7f0a3c6e9d2b5f8a1",
-)
+_DESCONTO_SCEE = Decimal("0.95")
+
+_MESES = {
+    1: "janeiro",  2: "fevereiro", 3: "março",    4: "abril",
+    5: "maio",     6: "junho",     7: "julho",     8: "agosto",
+    9: "setembro", 10: "outubro",  11: "novembro", 12: "dezembro",
+}
 
 
 @router.get(
@@ -28,16 +27,57 @@ _STUB: DadosPDF = DadosPDF(
     responses={
         200: {"content": {"application/pdf": {}}, "description": "Relatório PDF do locador"},
         401: {"description": "Token inválido ou ausente"},
+        404: {"description": "Geração não encontrada"},
     },
 )
 def baixar_pdf(
     geracao_id: UUID,
     current_user: User = Depends(get_user),
+    session: Session = Depends(get_session),
 ) -> Response:
-    # TODO S4: buscar dados reais do banco usando geracao_id
-    pdf_bytes = gerar_pdf(_STUB)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="solarize_2026-03.pdf"'},
+    geracao = session.exec(
+        select(GeracaoEnergia).where(
+            GeracaoEnergia.id == geracao_id,
+            GeracaoEnergia.organization_id == current_user.organization_id,
+        )
+    ).first()
+    if not geracao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Geração não encontrada ou sem permissão de acesso.",
+        )
+
+    contrato = session.get(Contrato, geracao.contrato_id)
+    if not contrato:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contrato associado à geração não encontrado.",
+        )
+
+    locador_name = _resolve_locador(geracao, current_user, session)
+    mes_ref = f"{_MESES[geracao.periodo_ref.month]}/{geracao.periodo_ref.year}"
+    filename = f"solarize_{geracao.periodo_ref.strftime('%Y-%m')}.pdf"
+
+    dados = DadosPDF(
+        locador=locador_name,
+        mes_ref=mes_ref,
+        energia_kwh=Decimal(str(geracao.energia_kwh)),
+        tarifa_kwh=Decimal(str(contrato.value_kwh)),
+        percentual_locador=Decimal(str(contrato.percentual_locador or 0)),
+        desconto_scee=_DESCONTO_SCEE,
+        hash_sha256=geracao.hash_sha256,
     )
+
+    return Response(
+        content=gerar_pdf(dados),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _resolve_locador(geracao: GeracaoEnergia, current_user: User, session: Session) -> str:
+    if geracao.created_by:
+        creator = session.get(User, geracao.created_by)
+        if creator:
+            return creator.name
+    return current_user.name
