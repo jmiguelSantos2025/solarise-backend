@@ -3,6 +3,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+
 class Settings(BaseSettings):
     database_url: str = ""
     jwt_secret: str = ""
@@ -12,7 +13,20 @@ class Settings(BaseSettings):
 
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
-        "env_file_encoding": "utf-8"
+        "env_file_encoding": "utf-8",
     }
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """
+        Suporta dois formatos no .env:
+          CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+          CORS_ORIGINS=[http://localhost:3000,http://localhost:8080]
+        """
+        raw = self.cors_origins.strip()
+        if raw.startswith("[") and raw.endswith("]"):
+            raw = raw[1:-1]
+        return [o.strip().strip("\"'") for o in raw.split(",") if o.strip()]
+
 
 settings = Settings()
