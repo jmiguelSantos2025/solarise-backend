@@ -6,16 +6,16 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-class ContratoCreate(BaseModel):
+class ContractCreate(BaseModel):
     number: str
     description: Optional[str] = None
     start_date: date
     end_date: Optional[date] = None
-    percentual_locador: Decimal
-    value_kwh: Decimal
+    landlord_percentage: Decimal
+    value: Decimal
 
 
-class ContratoRead(ContratoCreate):
+class ContractRead(ContractCreate):
     id: UUID
-    organization_id: UUID
+    org_id: UUID
     model_config = ConfigDict(from_attributes=True)

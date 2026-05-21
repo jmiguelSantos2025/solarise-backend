@@ -6,7 +6,7 @@ from sqlmodel import Session, col, select
 
 from app.routers.auth import get_user
 from database.database import get_session
-from database.models import Contrato, GeracaoEnergia
+from database.models import Contract, EnergyGeneration
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -15,57 +15,58 @@ _QUANT_KWH = Decimal("0.0001")
 _QUANT_BRL = Decimal("0.01")
 
 
-def _calc_valor(g: GeracaoEnergia, contrato: Contrato) -> Decimal:
+def _calc_value(g: EnergyGeneration, contract: Contract) -> Decimal:
     return (
-        Decimal(str(g.energia_kwh))
-        * Decimal(str(contrato.value_kwh))
-        * Decimal(str(contrato.percentual_locador or 0))
+        g.energy_kwh
+        * contract.value_kwh
+        * (contract.landlord_percentage or _ZERO)
         * Decimal("0.95")
     ).quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)
 
 
-@router.get("/locador")
-def dashboard_locador(
+@router.get("/landlord")
+def landlord_dashboard(
     session: Session = Depends(get_session),
     current_user=Depends(get_user),
 ):
-    contratos = session.exec(
-        select(Contrato).where(Contrato.organization_id == current_user.organization_id)
+    try:
+        contracts = session.exec(
+            select(Contract).where(Contract.organization_id == current_user.organization_id)
+        ).all()
+        if not contracts:
+            return {"current_month": None, "historical_series": []}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    contract_map = {c.id: c for c in contracts}
+
+    generations = session.exec(
+        select(EnergyGeneration)
+        .where(col(EnergyGeneration.contract_id).in_(list(contract_map.keys())))
+        .order_by(col(EnergyGeneration.reference_period))
     ).all()
-    if not contratos:
-        return {"mes_atual": None, "serie_historica": []}
+    if not generations:
+        return {"current_month": None, "historical_series": []}
 
-    contrato_map = {c.id: c for c in contratos}
-
-    geracoes = session.exec(
-        select(GeracaoEnergia)
-        .where(col(GeracaoEnergia.contrato_id).in_(list(contrato_map.keys())))
-        .order_by(GeracaoEnergia.periodo_ref)
-    ).all()
-    if not geracoes:
-        return {"mes_atual": None, "serie_historica": []}
-
-    # Agrega kWh e valor financeiro por mês, somando todos os contratos.
-    monthly: dict[str, dict[str, Decimal]] = defaultdict(lambda: {"kwh": _ZERO, "valor": _ZERO})
-    for g in geracoes:
-        mes = g.periodo_ref.strftime("%Y-%m")
-        monthly[mes]["kwh"] += Decimal(str(g.energia_kwh))
-        monthly[mes]["valor"] += _calc_valor(g, contrato_map[g.contrato_id])
+    monthly: dict[str, dict[str, Decimal]] = defaultdict(lambda: {"kwh": _ZERO, "value": _ZERO})
+    for g in generations:
+        month = g.reference_period.strftime("%Y-%m")
+        monthly[month]["kwh"] += g.energy_kwh
+        monthly[month]["value"] += _calc_value(g, contract_map[g.contract_id])
 
     sorted_months = sorted(monthly.keys())
-    last_mes = sorted_months[-1]
+    last_month = sorted_months[-1]
 
     return {
-        "mes_atual": {
-            "mes": last_mes,
-            "kwh": float(monthly[last_mes]["kwh"].quantize(_QUANT_KWH, rounding=ROUND_HALF_UP)),
-            "valor": float(monthly[last_mes]["valor"].quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)),
+        "current_month": {
+            "month": last_month,
+            "kwh": float(monthly[last_month]["kwh"].quantize(_QUANT_KWH, rounding=ROUND_HALF_UP)),
+            "value": float(monthly[last_month]["value"].quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)),
         },
-        "serie_historica": [
+        "historical_series": [
             {
-                "mes": mes,
-                "valor": float(monthly[mes]["valor"].quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)),
+                "month": month,
+                "value": float(monthly[month]["value"].quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)),
             }
-            for mes in sorted_months[-3:]
+            for month in sorted_months[-3:]
         ],
     }

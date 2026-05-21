@@ -14,8 +14,8 @@ class Register_Request(BaseModel):
     @field_validator("password")
     @classmethod
     def password_validator(cls, password: str) -> str:
-        pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
-        if re.search(pattern, password):
+        pattern = r"(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}"
+        if re.fullmatch(pattern, password):
             return password
         raise ValueError("A senha deve conter maiúscula, minúscula, número e caractere especial (@$!%*?&).")
 

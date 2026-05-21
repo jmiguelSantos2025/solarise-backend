@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.core.security import create_hash_password, create_token, verify_hash_password, verify_token
 from app.schemas.auth import Message_Response, Register_Request, Token_Response, User_Response
 from database.database import get_session
@@ -23,7 +24,11 @@ def get_user(token: str = Depends(oauth2), session: Session = Depends(get_sessio
     user_id = data.get("ID")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token.")
-    user = session.get(User, uuid.UUID(user_id))
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Malformed token.")
+    user = session.get(User, user_uuid)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
     return user
@@ -72,11 +77,12 @@ def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depend
         "org_id": str(user.organization_id),
         "role": user.role,
     }
+    expire_hours = settings.jwt_expire_hours
     return Token_Response(
-        access_token=create_token(payload, 24),
-        refresh_token=create_token({**payload, "type": "refresh"}, 168),
+        access_token=create_token(payload, expire_hours),
+        refresh_token=create_token({**payload, "type": "refresh"}, expire_hours * 7),
         token_type="bearer",
-        expires_in=86400,
+        expires_in=expire_hours * 3600,
     )
 
 

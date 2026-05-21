@@ -8,64 +8,64 @@ from sqlmodel import Session, select
 from app.routers.auth import get_user
 from app.services.pdf_service import DadosPDF, gerar_pdf
 from database.database import get_session
-from database.models import Contrato, GeracaoEnergia, User
+from database.models import Contract, EnergyGeneration, User
 
 router = APIRouter(prefix="/pdf", tags=["PDF"])
 
-_DESCONTO_SCEE = Decimal("0.95")
+_SCEE_DISCOUNT = Decimal("0.95")
 
-_MESES = {
-    1: "janeiro",  2: "fevereiro", 3: "março",    4: "abril",
-    5: "maio",     6: "junho",     7: "julho",     8: "agosto",
-    9: "setembro", 10: "outubro",  11: "novembro", 12: "dezembro",
+_MONTHS = {
+    1: "January",   2: "February", 3: "March",    4: "April",
+    5: "May",       6: "June",     7: "July",      8: "August",
+    9: "September", 10: "October", 11: "November", 12: "December",
 }
 
 
 @router.get(
-    "/{geracao_id}",
+    "/{generation_id}",
     response_class=Response,
     responses={
-        200: {"content": {"application/pdf": {}}, "description": "Relatório PDF do locador"},
-        401: {"description": "Token inválido ou ausente"},
-        404: {"description": "Geração não encontrada"},
+        200: {"content": {"application/pdf": {}}, "description": "Landlord generation report"},
+        401: {"description": "Invalid or missing token"},
+        404: {"description": "Generation record not found"},
     },
 )
-def baixar_pdf(
-    geracao_id: UUID,
+def download_pdf(
+    generation_id: UUID,
     current_user: User = Depends(get_user),
     session: Session = Depends(get_session),
 ) -> Response:
-    geracao = session.exec(
-        select(GeracaoEnergia).where(
-            GeracaoEnergia.id == geracao_id,
-            GeracaoEnergia.organization_id == current_user.organization_id,
+    generation = session.exec(
+        select(EnergyGeneration).where(
+            EnergyGeneration.id == generation_id,
+            EnergyGeneration.organization_id == current_user.organization_id,
         )
     ).first()
-    if not geracao:
+    if not generation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Geração não encontrada ou sem permissão de acesso.",
+            detail="Generation record not found or access denied.",
         )
 
-    contrato = session.get(Contrato, geracao.contrato_id)
-    if not contrato:
+    contract = session.get(Contract, generation.contract_id)
+    if not contract:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Contrato associado à geração não encontrado.",
+            detail="Contract associated with this generation record not found.",
         )
 
-    locador_name = _resolve_locador(geracao, current_user, session)
-    mes_ref = f"{_MESES[geracao.periodo_ref.month]}/{geracao.periodo_ref.year}"
-    filename = f"solarize_{geracao.periodo_ref.strftime('%Y-%m')}.pdf"
+    landlord_name = _resolve_landlord(generation, current_user, session)
+    reference_month = f"{_MONTHS[generation.reference_period.month]}/{generation.reference_period.year}"
+    filename = f"solarize_{generation.reference_period.strftime('%Y-%m')}.pdf"
 
     dados = DadosPDF(
-        locador=locador_name,
-        mes_ref=mes_ref,
-        energia_kwh=Decimal(str(geracao.energia_kwh)),
-        tarifa_kwh=Decimal(str(contrato.value_kwh)),
-        percentual_locador=Decimal(str(contrato.percentual_locador or 0)),
-        desconto_scee=_DESCONTO_SCEE,
-        hash_sha256=geracao.hash_sha256,
+        locador=landlord_name,
+        mes_ref=reference_month,
+        energia_kwh=generation.energy_kwh,
+        tarifa_kwh=contract.value_kwh,
+        percentual_locador=contract.landlord_percentage or Decimal(0),
+        desconto_scee=_SCEE_DISCOUNT,
+        hash_sha256=generation.hash_sha256,
     )
 
     return Response(
@@ -75,9 +75,9 @@ def baixar_pdf(
     )
 
 
-def _resolve_locador(geracao: GeracaoEnergia, current_user: User, session: Session) -> str:
-    if geracao.created_by:
-        creator = session.get(User, geracao.created_by)
+def _resolve_landlord(generation: EnergyGeneration, current_user: User, session: Session) -> str:
+    if generation.created_by:
+        creator = session.get(User, generation.created_by)
         if creator:
             return creator.name
     return current_user.name
