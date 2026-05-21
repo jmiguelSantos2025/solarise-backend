@@ -1,15 +1,64 @@
 import uuid
-from fastapi import APIRouter, HTTPException, Depends, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from app.schemas.auth import *
-from app.core.security import *
+from sqlmodel import Session, select
+
+from app.core.config import settings
+from app.core.limiter import limiter
+from app.core.security import create_hash_password, create_token, verify_hash_password, verify_token
+from app.schemas.auth import Message_Response, Register_Request, Token_Response, User_Response
+from database.database import get_session
+from database.models import Organization, User
 
 router = APIRouter()
-oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-users: dict = {}
+_DEV_EMAIL = "dev@solarize.local"
 
-def get_user(token: str = Depends(oauth2)) -> dict: #Done!
+# auto_error=False permite que token seja None — tratado manualmente abaixo
+oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+
+
+def _get_or_create_dev_user(session: Session) -> User:
+    # Prefer the first real user so the dev context shares the same org and data
+    real_user = session.exec(
+        select(User).where(User.email != _DEV_EMAIL).order_by(User.created_at)
+    ).first()
+    if real_user:
+        return real_user
+
+    # No real users yet — fall back to a dedicated dev user
+    dev_user = session.exec(select(User).where(User.email == _DEV_EMAIL)).first()
+    if dev_user:
+        return dev_user
+
+    org = Organization(name="Dev Organization", cnpj="00000000000000", email=_DEV_EMAIL)
+    session.add(org)
+    session.flush()
+    dev_user = User(
+        email=_DEV_EMAIL,
+        name="Dev User",
+        role="admin",
+        organization_id=org.id,
+        password_hash=create_hash_password("dev"),
+    )
+    session.add(dev_user)
+    session.commit()
+    session.refresh(dev_user)
+    return dev_user
+
+
+def get_user(token: Optional[str] = Depends(oauth2), session: Session = Depends(get_session)) -> User:
+    if token is None:
+        if settings.app_env == "development":
+            return _get_or_create_dev_user(session)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     data = verify_token(token)
     if data is None:
         raise HTTPException(
@@ -46,7 +95,11 @@ def register(user: Register_Request): #Done!
 @router.post("/login", response_model=Token_Response)
 def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
 
-    user_data = users.get(user.username)
+    org = session.exec(select(Organization).where(Organization.cnpj == payload.org_cnpj)).first()
+    if not org:
+        org = Organization(name=payload.org_name, cnpj=payload.org_cnpj, email=payload.org_email)
+        session.add(org)
+        session.flush()
 
     if not user_data :
         raise HTTPException(status_code=401, detail="Error: User not found")
@@ -62,11 +115,28 @@ def login(user: OAuth2PasswordRequestForm = Depends()): #Done!
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {e}")
 
+    return Message_Response(message=f"Usuário {payload.name} registrado com sucesso.", success=True)
+
+
+@router.post("/login", response_model=Token_Response)
+@limiter.limit("5/minute")
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    user = session.exec(select(User).where(User.email == form.username)).first()
+    if not user or not user.password_hash or not verify_hash_password(form.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas.")
+
+    payload = {
+        "name": user.name,
+        "ID": str(user.id),
+        "org_id": str(user.organization_id),
+        "role": user.role,
+    }
+    expire_hours = settings.jwt_expire_hours
     return Token_Response(
-        access_token=create_token(payload, 24),
-        refresh_token=create_token({**payload, "type": "refresh"}, 168),
+        access_token=create_token(payload, expire_hours),
+        refresh_token=create_token({**payload, "type": "refresh"}, expire_hours * 7),
         token_type="bearer",
-        expires_in=86400
+        expires_in=expire_hours * 3600,
     )
 
 @router.get("/profile", response_model=User_Response) #Done!
