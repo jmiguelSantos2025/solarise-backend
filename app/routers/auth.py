@@ -1,19 +1,67 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
 from app.core.config import settings
+<<<<<<< HEAD
+=======
+from app.core.limiter import limiter
+>>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
 from app.core.security import create_hash_password, create_token, verify_hash_password, verify_token
 from app.schemas.auth import Message_Response, Register_Request, Token_Response, User_Response
 from database.database import get_session
 from database.models import Organization, User
 
 router = APIRouter()
-oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+_DEV_EMAIL = "dev@solarize.local"
+
+# auto_error=False permite que token seja None — tratado manualmente abaixo
+oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
-def get_user(token: str = Depends(oauth2), session: Session = Depends(get_session)) -> User:
+def _get_or_create_dev_user(session: Session) -> User:
+    # Prefer the first real user so the dev context shares the same org and data
+    real_user = session.exec(
+        select(User).where(User.email != _DEV_EMAIL).order_by(User.created_at)
+    ).first()
+    if real_user:
+        return real_user
+
+    # No real users yet — fall back to a dedicated dev user
+    dev_user = session.exec(select(User).where(User.email == _DEV_EMAIL)).first()
+    if dev_user:
+        return dev_user
+
+    org = Organization(name="Dev Organization", cnpj="00000000000000", email=_DEV_EMAIL)
+    session.add(org)
+    session.flush()
+    dev_user = User(
+        email=_DEV_EMAIL,
+        name="Dev User",
+        role="admin",
+        organization_id=org.id,
+        password_hash=create_hash_password("dev"),
+    )
+    session.add(dev_user)
+    session.commit()
+    session.refresh(dev_user)
+    return dev_user
+
+
+def get_user(token: Optional[str] = Depends(oauth2), session: Session = Depends(get_session)) -> User:
+    if token is None:
+        if settings.app_env == "development":
+            return _get_or_create_dev_user(session)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     data = verify_token(token)
     if data is None:
         raise HTTPException(
@@ -66,9 +114,10 @@ def register(payload: Register_Request, session: Session = Depends(get_session))
 
 
 @router.post("/login", response_model=Token_Response)
-def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+@limiter.limit("5/minute")
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     user = session.exec(select(User).where(User.email == form.username)).first()
-    if not user or not verify_hash_password(form.password, user.password_hash or ""):
+    if not user or not user.password_hash or not verify_hash_password(form.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas.")
 
     payload = {

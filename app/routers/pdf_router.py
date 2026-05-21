@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.routers.auth import get_user
 from app.services.pdf_service import DadosPDF, gerar_pdf
 from database.database import get_session
@@ -35,6 +36,7 @@ def download_pdf(
     current_user: User = Depends(get_user),
     session: Session = Depends(get_session),
 ) -> Response:
+<<<<<<< HEAD
     generation = session.exec(
         select(EnergyGeneration).where(
             EnergyGeneration.id == generation_id,
@@ -42,6 +44,18 @@ def download_pdf(
         )
     ).first()
     if not generation:
+=======
+    if settings.app_env == "development":
+        geracao = session.get(GeracaoEnergia, geracao_id)
+    else:
+        geracao = session.exec(
+            select(GeracaoEnergia).where(
+                GeracaoEnergia.id == geracao_id,
+                GeracaoEnergia.organization_id == current_user.organization_id,
+            )
+        ).first()
+    if not geracao:
+>>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Generation record not found or access denied.",
@@ -54,6 +68,7 @@ def download_pdf(
             detail="Contract associated with this generation record not found.",
         )
 
+<<<<<<< HEAD
     landlord_name = _resolve_landlord(generation, current_user, session)
     reference_month = f"{_MONTHS[generation.reference_period.month]}/{generation.reference_period.year}"
     filename = f"solarize_{generation.reference_period.strftime('%Y-%m')}.pdf"
@@ -68,6 +83,23 @@ def download_pdf(
         hash_sha256=generation.hash_sha256,
     )
 
+=======
+    locador_name = _resolve_locador(geracao, current_user, session)
+    mes_ref = f"{_MESES[geracao.periodo_ref.month]}/{geracao.periodo_ref.year}"
+    filename = f"solarize_{geracao.periodo_ref.strftime('%Y-%m')}.pdf"
+    try:
+        dados = DadosPDF(
+            locador=locador_name,
+            mes_ref=mes_ref,
+            energia_kwh=Decimal(str(geracao.energia_kwh)),
+            tarifa_kwh=Decimal(str(contrato.value_kwh)),
+            percentual_locador=Decimal(str(contrato.percentual_locador or 0)),
+            desconto_scee=_DESCONTO_SCEE,
+            hash_sha256=geracao.hash_sha256,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error: {e}")
+>>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
     return Response(
         content=gerar_pdf(dados),
         media_type="application/pdf",

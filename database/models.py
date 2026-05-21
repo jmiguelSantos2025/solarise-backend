@@ -3,8 +3,12 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
+<<<<<<< HEAD
 
 from sqlalchemy import Column, Numeric
+=======
+from sqlalchemy import UniqueConstraint
+>>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -40,6 +44,7 @@ class User(SQLModel, table=True):
     organization: Optional[Organization] = Relationship(back_populates='users')
 
 
+<<<<<<< HEAD
 class Contract(SQLModel, table=True):
     __tablename__ = 'contracts'
 
@@ -57,6 +62,23 @@ class Contract(SQLModel, table=True):
 
     organization: Optional[Organization]  = Relationship(back_populates='contracts')
     generations:  list['EnergyGeneration'] = Relationship(back_populates='contract')
+=======
+class Contrato(SQLModel, table=True):
+    __tablename__ = 'contratos'
+    __table_args__ = (UniqueConstraint("organization_id", "number", name="uq_contrato_org_number"),)
+
+    id:              uuid.UUID        = Field(default_factory=uuid.uuid4, primary_key=True)
+    organization_id: uuid.UUID        = Field(foreign_key='organizations.id')
+    number:          str              = Field(max_length=100)
+    description:     Optional[str]    = Field(default=None)
+    start_date:      date
+    end_date:        Optional[date]   = Field(default=None)
+    value_kwh:       float            = Field(decimal_places=4)
+    percentual_locador: Optional[float] = Field(default=None, decimal_places=4)
+    status:          str              = Field(default='active', max_length=50)
+    created_at:      datetime         = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at:      datetime         = Field(default_factory=lambda: datetime.now(timezone.utc))
+>>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
 
 
 class EnergyGeneration(SQLModel, table=True):
