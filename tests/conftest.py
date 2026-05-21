@@ -7,6 +7,7 @@ os.environ["JWT_ALGORITHM"] = "HS256"
 os.environ["JWT_EXPIRE_HOURS"] = "24"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
+os.environ["APP_ENV"] = "production"
 
 import pytest
 from fastapi.testclient import TestClient

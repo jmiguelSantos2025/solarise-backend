@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.routers.auth import get_user
 from app.services.pdf_service import DadosPDF, gerar_pdf
 from database.database import get_session
@@ -35,12 +36,15 @@ def baixar_pdf(
     current_user: User = Depends(get_user),
     session: Session = Depends(get_session),
 ) -> Response:
-    geracao = session.exec(
-        select(GeracaoEnergia).where(
-            GeracaoEnergia.id == geracao_id,
-            GeracaoEnergia.organization_id == current_user.organization_id,
-        )
-    ).first()
+    if settings.app_env == "development":
+        geracao = session.get(GeracaoEnergia, geracao_id)
+    else:
+        geracao = session.exec(
+            select(GeracaoEnergia).where(
+                GeracaoEnergia.id == geracao_id,
+                GeracaoEnergia.organization_id == current_user.organization_id,
+            )
+        ).first()
     if not geracao:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -57,17 +61,18 @@ def baixar_pdf(
     locador_name = _resolve_locador(geracao, current_user, session)
     mes_ref = f"{_MESES[geracao.periodo_ref.month]}/{geracao.periodo_ref.year}"
     filename = f"solarize_{geracao.periodo_ref.strftime('%Y-%m')}.pdf"
-
-    dados = DadosPDF(
-        locador=locador_name,
-        mes_ref=mes_ref,
-        energia_kwh=Decimal(str(geracao.energia_kwh)),
-        tarifa_kwh=Decimal(str(contrato.value_kwh)),
-        percentual_locador=Decimal(str(contrato.percentual_locador or 0)),
-        desconto_scee=_DESCONTO_SCEE,
-        hash_sha256=geracao.hash_sha256,
-    )
-
+    try:
+        dados = DadosPDF(
+            locador=locador_name,
+            mes_ref=mes_ref,
+            energia_kwh=Decimal(str(geracao.energia_kwh)),
+            tarifa_kwh=Decimal(str(contrato.value_kwh)),
+            percentual_locador=Decimal(str(contrato.percentual_locador or 0)),
+            desconto_scee=_DESCONTO_SCEE,
+            hash_sha256=geracao.hash_sha256,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error: {e}")
     return Response(
         content=gerar_pdf(dados),
         media_type="application/pdf",

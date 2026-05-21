@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 24
     cors_origins: str = "http://localhost:3000"
+    app_env: str = "production"
 
     model_config = {
         "env_file": str(BASE_DIR / ".env"),
