@@ -24,7 +24,7 @@ def get_user(token: str = Depends(oauth2)) -> dict: #Done!
 @router.post("/register", response_model=Message_Response)
 def register(user: Register_Request): #Done!
     if user.email in users:
-        raise HTTPException(status_code=409, detail="Error :Email already registered.")
+        raise HTTPException(status_code=409, detail="Error : Email already registered.")
     
     org_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())
