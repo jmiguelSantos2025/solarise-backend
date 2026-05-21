@@ -1,5 +1,7 @@
 """Tests for authentication endpoints: register, login, profile."""
 from tests.conftest import auth_header, login_user, register_user
+from database.models import User, Organization
+from app.core.security import create_hash_password
 
 
 def test_register_success(client):
@@ -77,6 +79,21 @@ def test_profile_returns_user_data(client):
 
 def test_profile_invalid_token(client):
     resp = client.get("/auth/profile", headers={"Authorization": "Bearer invalidtoken"})
+    assert resp.status_code == 401
+
+
+def test_login_user_without_password_hash_returns_401(client, session):
+    """Usuário sem password_hash (ex: criado antes da migration) deve receber 401, não 500."""
+    from datetime import date
+    org = Organization(name="OldOrg", cnpj="55555555000155", email="old@org.com")
+    session.add(org)
+    session.flush()
+    user = User(email="legacy@test.com", name="Legacy User", role="user",
+                organization_id=org.id, password_hash=None)
+    session.add(user)
+    session.commit()
+
+    resp = login_user(client, email="legacy@test.com", password="AnyPass1@")
     assert resp.status_code == 401
 
 

@@ -62,8 +62,9 @@ def register(payload: Register_Request, session: Session = Depends(get_session))
 
 @router.post("/login", response_model=Token_Response)
 def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    # form.username deve ser o e-mail cadastrado, não o nome do usuário
     user = session.exec(select(User).where(User.email == form.username)).first()
-    if not user or not verify_hash_password(form.password, user.password_hash or ""):
+    if not user or not user.password_hash or not verify_hash_password(form.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas.")
 
     payload = {

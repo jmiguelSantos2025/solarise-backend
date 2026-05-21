@@ -34,6 +34,16 @@ def criar_contrato(
     return contrato
 
 
+@router.get("/", response_model=list[ContratoRead])
+def listar_contratos(
+    session: Session = Depends(get_session),
+    current_user=Depends(get_user),
+):
+    return session.exec(
+        select(Contrato).where(Contrato.organization_id == current_user.organization_id)
+    ).all()
+
+
 @router.get("/{contrato_id}", response_model=ContratoRead)
 def obter_contrato(
     contrato_id: UUID,
