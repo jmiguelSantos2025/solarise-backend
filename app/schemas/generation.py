@@ -27,12 +27,10 @@ class PreviewResponse(BaseModel):
     date: str
     saved: bool = False
 
-<<<<<<< HEAD
-
-class GenerationResponse(BaseModel):
-    id: str
-    contract_id: Optional[str] = None
-    value: Optional[Decimal] = None
+class Generation_Response(BaseModel):
+    ID: str
+    contract_ID: Optional[str] = None
+    value: Optional[str] = None
     hash_sha256: Optional[str] = None
 =======
 class Generation_Response(BaseModel):
@@ -40,6 +38,6 @@ class Generation_Response(BaseModel):
     contract_ID: str
     value: Decimal
     hash_sha256: str
->>>>>>> f1f4f9fccb3164ad566b3f1b97b0e4299cf84fc7
+
     previous_hash: Optional[str] = None
     date: datetime
