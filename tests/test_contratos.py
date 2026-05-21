@@ -166,6 +166,19 @@ def test_create_contract_invalid_value_kwh_negative(client):
     assert resp.status_code == 422
 
 
+def test_same_number_different_orgs_allowed(client):
+    """Duas organizações distintas devem poder usar o mesmo número de contrato."""
+    headers_a = _setup(client)
+    resp_a = create_contract(client, headers_a, number="SHARED-001")
+    assert resp_a.status_code == 201
+
+    register_user(client, email="b@test.com", org_name="OrgB",
+                  org_cnpj="99999999000199", org_email="b@org.com")
+    headers_b = auth_header(client, email="b@test.com")
+    resp_b = create_contract(client, headers_b, number="SHARED-001")
+    assert resp_b.status_code == 201
+
+
 def test_percentual_locador_blocked_after_generation(client, session):
     """Não deve ser possível alterar percentual_locador após registros de geração."""
     from datetime import date

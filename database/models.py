@@ -2,6 +2,7 @@ import hashlib
 import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
+from sqlalchemy import UniqueConstraint
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -38,10 +39,11 @@ class User(SQLModel, table=True):
 
 class Contrato(SQLModel, table=True):
     __tablename__ = 'contratos'
+    __table_args__ = (UniqueConstraint("organization_id", "number", name="uq_contrato_org_number"),)
 
     id:              uuid.UUID        = Field(default_factory=uuid.uuid4, primary_key=True)
     organization_id: uuid.UUID        = Field(foreign_key='organizations.id')
-    number:          str              = Field(max_length=100, unique=True)
+    number:          str              = Field(max_length=100)
     description:     Optional[str]    = Field(default=None)
     start_date:      date
     end_date:        Optional[date]   = Field(default=None)

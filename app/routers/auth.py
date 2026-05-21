@@ -1,8 +1,9 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 
+from app.core.limiter import limiter
 from app.core.security import create_hash_password, create_token, verify_hash_password, verify_token
 from app.schemas.auth import Message_Response, Register_Request, Token_Response, User_Response
 from database.database import get_session
@@ -61,7 +62,8 @@ def register(payload: Register_Request, session: Session = Depends(get_session))
 
 
 @router.post("/login", response_model=Token_Response)
-def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+@limiter.limit("5/minute")
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     # form.username deve ser o e-mail cadastrado, não o nome do usuário
     user = session.exec(select(User).where(User.email == form.username)).first()
     if not user or not user.password_hash or not verify_hash_password(form.password, user.password_hash):
