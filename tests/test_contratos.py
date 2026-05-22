@@ -1,6 +1,4 @@
-"""Tests for contract endpoints: create, get, update."""
-import time
-
+"""Tests for contract endpoints: create, get, list, update."""
 from tests.conftest import auth_header, create_contract, register_user
 
 
@@ -95,6 +93,90 @@ def test_duplicate_contract_number_returns_409(client):
     create_contract(client, headers, number="SAME-001")
     resp = create_contract(client, headers, number="SAME-001")
     assert resp.status_code == 409
+
+
+def test_list_contracts_empty(client):
+    headers = _setup(client)
+    resp = client.get("/contratos/", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_contracts_success(client):
+    headers = _setup(client)
+    create_contract(client, headers, number="CTRT-001")
+    create_contract(client, headers, number="CTRT-002")
+    resp = client.get("/contratos/", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    numbers = {c["number"] for c in data}
+    assert numbers == {"CTRT-001", "CTRT-002"}
+    assert "id" in data[0]
+    assert "status" in data[0]
+    assert "created_at" in data[0]
+
+
+def test_list_contracts_requires_auth(client):
+    resp = client.get("/contratos/")
+    assert resp.status_code == 401
+
+
+def test_list_contracts_org_isolation(client):
+    """Org B deve ver apenas seus próprios contratos, nunca os da Org A."""
+    headers_a = _setup(client)
+    create_contract(client, headers_a, number="ORG-A-CONTRACT")
+
+    register_user(client, email="b@test.com", org_name="OrgB",
+                  org_cnpj="99999999000199", org_email="b@org.com")
+    headers_b = auth_header(client, email="b@test.com")
+    create_contract(client, headers_b, number="ORG-B-CONTRACT")
+
+    resp_a = client.get("/contratos/", headers=headers_a)
+    resp_b = client.get("/contratos/", headers=headers_b)
+
+    numbers_a = {c["number"] for c in resp_a.json()}
+    numbers_b = {c["number"] for c in resp_b.json()}
+
+    assert numbers_a == {"ORG-A-CONTRACT"}
+    assert numbers_b == {"ORG-B-CONTRACT"}
+
+
+def test_create_contract_invalid_percentual_above_one(client):
+    headers = _setup(client)
+    resp = create_contract(client, headers, percentual_locador="1.01")
+    assert resp.status_code == 422
+
+
+def test_create_contract_invalid_percentual_zero(client):
+    headers = _setup(client)
+    resp = create_contract(client, headers, percentual_locador="0")
+    assert resp.status_code == 422
+
+
+def test_create_contract_invalid_value_kwh_zero(client):
+    headers = _setup(client)
+    resp = create_contract(client, headers, value_kwh="0")
+    assert resp.status_code == 422
+
+
+def test_create_contract_invalid_value_kwh_negative(client):
+    headers = _setup(client)
+    resp = create_contract(client, headers, value_kwh="-0.50")
+    assert resp.status_code == 422
+
+
+def test_same_number_different_orgs_allowed(client):
+    """Duas organizações distintas devem poder usar o mesmo número de contrato."""
+    headers_a = _setup(client)
+    resp_a = create_contract(client, headers_a, number="SHARED-001")
+    assert resp_a.status_code == 201
+
+    register_user(client, email="b@test.com", org_name="OrgB",
+                  org_cnpj="99999999000199", org_email="b@org.com")
+    headers_b = auth_header(client, email="b@test.com")
+    resp_b = create_contract(client, headers_b, number="SHARED-001")
+    assert resp_b.status_code == 201
 
 
 def test_percentual_locador_blocked_after_generation(client, session):

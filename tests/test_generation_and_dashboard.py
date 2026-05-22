@@ -155,6 +155,86 @@ def test_dashboard_aggregates_all_contracts(client, session):
     assert data["mes_atual"]["valor"] == 356.25
 
 
+def test_dashboard_mes_atual_contains_hash(client, session):
+    """mes_atual deve incluir o hash SHA-256 da última geração do mês."""
+    from datetime import date
+    from database.models import Contrato, GeracaoEnergia, Organization, User, calcular_hash
+    from app.core.security import create_hash_password
+
+    org = Organization(name="HashOrg", cnpj="55500000000155", email="hash@org.com")
+    session.add(org)
+    session.flush()
+
+    user = User(email="hash@test.com", name="Hash User", role="admin",
+                organization_id=org.id,
+                password_hash=create_hash_password("Password1@"))
+    session.add(user)
+    session.flush()
+
+    c = Contrato(number="HASH-CTRT", organization_id=org.id, start_date=date(2026, 1, 1),
+                 value_kwh=0.85, percentual_locador=0.30, status="active")
+    session.add(c)
+    session.flush()
+
+    g = GeracaoEnergia(contrato_id=c.id, organization_id=org.id,
+                       periodo_ref=date(2026, 3, 1), energia_kwh=38500.0,
+                       hash_anterior=None)
+    g.hash_sha256 = calcular_hash(g)
+    session.add(g)
+    session.commit()
+
+    headers = auth_header(client, email="hash@test.com")
+    resp = client.get("/dashboard/locador", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["mes_atual"] is not None
+    assert "hash" in data["mes_atual"]
+    assert data["mes_atual"]["hash"] == g.hash_sha256
+    assert len(data["mes_atual"]["hash"]) == 64
+
+
+def test_dashboard_hash_is_last_in_chain(client, session):
+    """Com múltiplos registros num mesmo mês, hash retornado deve ser o do último."""
+    from datetime import date, timedelta
+    from database.models import Contrato, GeracaoEnergia, Organization, User, calcular_hash
+    from app.core.security import create_hash_password
+
+    org = Organization(name="ChainOrg", cnpj="66600000000166", email="chain@org.com")
+    session.add(org)
+    session.flush()
+
+    user = User(email="chain@test.com", name="Chain User", role="admin",
+                organization_id=org.id,
+                password_hash=create_hash_password("Password1@"))
+    session.add(user)
+    session.flush()
+
+    c = Contrato(number="CHAIN-CTRT", organization_id=org.id, start_date=date(2026, 1, 1),
+                 value_kwh=0.85, percentual_locador=0.30, status="active")
+    session.add(c)
+    session.flush()
+
+    g1 = GeracaoEnergia(contrato_id=c.id, organization_id=org.id,
+                        periodo_ref=date(2026, 3, 1), energia_kwh=10000.0,
+                        hash_anterior=None)
+    g1.hash_sha256 = calcular_hash(g1)
+    session.add(g1)
+    session.flush()
+
+    g2 = GeracaoEnergia(contrato_id=c.id, organization_id=org.id,
+                        periodo_ref=date(2026, 3, 1), energia_kwh=5000.0,
+                        hash_anterior=g1.hash_sha256)
+    g2.hash_sha256 = calcular_hash(g2)
+    session.add(g2)
+    session.commit()
+
+    headers = auth_header(client, email="chain@test.com")
+    resp = client.get("/dashboard/locador", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["mes_atual"]["hash"] == g2.hash_sha256
+
+
 def test_dashboard_serie_historica_max_3_months(client, session):
     """A série histórica deve retornar no máximo os últimos 3 meses."""
     from datetime import date
