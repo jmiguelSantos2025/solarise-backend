@@ -25,7 +25,7 @@ def get_previous_hash(contract_id: str, org_id: str) -> str: #Done!
     return previous_register["hash_sha256"]
 
 @router.post("/preview", response_model=PreviewResponse)
-def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_user)): #Done!
+def preview_dashboard(item: PreviewRequest, current_user: dict = Depends(get_user)): #Done!
     contract = contracts.get(item.contract_ID)
     if not contract:
         raise HTTPException(status_code=404, detail="Error: Contract not found.")
@@ -48,7 +48,7 @@ def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_us
     )
 
 @router.post("/", response_model=Generation_Response, status_code=201)
-def generation(data: Generation_Request, current_user: dict = Depends(get_user)): #Done!
+def generation(data: GenerationRequest, current_user: dict = Depends(get_user)): #Done!
     contract = contracts.get(data.contract_ID)
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found.")
