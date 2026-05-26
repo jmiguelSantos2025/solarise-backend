@@ -24,7 +24,7 @@ def get_previous_hash(contract_id: str, org_id: str) -> str: #Done!
     previous_register = sorted(contract_registers, key=lambda x: x["created_at"])[-1]
     return previous_register["hash_sha256"]
 
-@router.post("/preview", response_model=Preview_Response)
+@router.post("/preview", response_model=PreviewResponse)
 def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_user)): #Done!
     contract = contracts.get(item.contract_ID)
     if not contract:
@@ -36,7 +36,7 @@ def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_us
         value = landlord_calculator(generated_energy, tariff, percentage)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error: {e}")
-    return Preview_Response(
+    return PreviewResponse(
         generated_energy=str(generated_energy),
         tariff=str(tariff),
         landlord_percentage=str(percentage),
