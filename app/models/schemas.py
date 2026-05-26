@@ -12,7 +12,7 @@ class ContractCreate(BaseModel):
     start_date: date
     end_date: Optional[date] = None
     landlord_percentage: Decimal
-    value: Decimal
+    value_kwh: Decimal
 
 
 class ContractRead(ContractCreate):

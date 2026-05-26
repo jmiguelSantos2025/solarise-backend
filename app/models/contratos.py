@@ -14,6 +14,13 @@ from database.models import Contract, EnergyGeneration
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 
+@router.get("/", response_model=list[ContractRead])
+def list_contracts(session: Session = Depends(get_session), current_user=Depends(get_user)):
+    return session.exec(
+        select(Contract).where(Contract.organization_id == current_user.organization_id)
+    ).all()
+
+
 @router.post("/", response_model=ContractRead, status_code=status.HTTP_201_CREATED)
 def create_contract(
     payload: ContractCreate,
