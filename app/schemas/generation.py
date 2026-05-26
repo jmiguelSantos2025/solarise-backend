@@ -29,15 +29,8 @@ class PreviewResponse(BaseModel):
 
 class Generation_Response(BaseModel):
     ID: str
-    contract_ID: Optional[str] = None
-    value: Optional[str] = None
-    hash_sha256: Optional[str] = None
-=======
-class Generation_Response(BaseModel):
-    ID: str
     contract_ID: str
     value: Decimal
     hash_sha256: str
-
     previous_hash: Optional[str] = None
     date: datetime
