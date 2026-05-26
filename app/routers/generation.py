@@ -25,7 +25,7 @@ def get_previous_hash(contract_id: str, org_id: str) -> str: #Done!
     return previous_register["hash_sha256"]
 
 @router.post("/preview", response_model=PreviewResponse)
-def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_user)): #Done!
+def preview_dashboard(item: PreviewRequest, current_user: dict = Depends(get_user)): #Done!
     contract = contracts.get(item.contract_ID)
     if not contract:
         raise HTTPException(status_code=404, detail="Error: Contract not found.")
@@ -47,8 +47,8 @@ def preview_dashboard(item: Preview_Request, current_user: dict = Depends(get_us
         saved=False
     )
 
-@router.post("/", response_model=Generation_Response, status_code=201)
-def generation(data: Generation_Request, current_user: dict = Depends(get_user)): #Done!
+@router.post("/", response_model=GenerationResponse, status_code=201)
+def generation(data: GenerationRequest, current_user: dict = Depends(get_user)): #Done!
     contract = contracts.get(data.contract_ID)
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found.")
@@ -95,7 +95,7 @@ def generation(data: Generation_Request, current_user: dict = Depends(get_user))
         "created_at": time_now
         })
     
-    return Generation_Response(
+    return GenerationResponse(
         ID=register_id,
         contract_ID=data.contract_ID,
         value=str(value),
@@ -105,44 +105,5 @@ def generation(data: Generation_Request, current_user: dict = Depends(get_user))
     )
 
 @router.post("/{contract_id}/audit")
-def audit(contract_id: str, current_user: dict = Depends(get_user)):
-    contract_registers = [
-        register for register in registers
-        if register["contract_id"] == contract_id and register["org_id"] == current_user["org_id"]
-    ]
-    if not contract_registers:
-        raise HTTPException(status_code=404, detail="Error: No records found for this contract.")
-    
-    sorted_registers = sorted(contract_registers, key=lambda x: x["created_at"])
+def au
 
-    verify_registers = [
-        {
-            "id": register["id"],
-            "data": register["data_hash"],
-            "hash_sha256": register["hash_sha256"],
-            "previous_hash": register["previous_hash"]
-        }
-        for register in sorted_registers
-    ]
-
-    result = verify_hash_chain(verify_registers)
-    chain_valid = all(register["valid"] for register in result)
-
-    
-
-    return {
-        "contract_id": contract_id,
-        "chain_valid": chain_valid,
-        "total_records": len(result),
-        "valid_records": sum(1 for register in result if register["valid"]),
-        "invalid_records": sum(1 for register in result if not register["valid"]),
-        "details": result
-    }
-@router.post("/{contract_id}/tamper-test")  # só para teste
-def tamper_test(contract_id: str, current_user: dict = Depends(get_user)):
-    """Endpoint só para teste — simula adulteração"""
-    for r in registers:
-        if r["contract_id"] == contract_id:
-            r["data_hash"]["value"] = "999.99"
-            break
-    return {"message": "Register tampered!"}
