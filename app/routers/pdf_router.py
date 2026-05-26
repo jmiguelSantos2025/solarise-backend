@@ -48,7 +48,14 @@ def download_pdf(
             detail="Contract associated with this generation record not found.",
         )
 
-    landlord_name = _resolve_landlord(generation, current_user, session)
+    landlord = session.exec(
+        select(User).where(
+            User.organization_id == current_user.organization_id,
+            User.role == "locador",
+        )
+    ).first()
+    landlord_name = landlord.name if landlord else current_user.name
+
     org = session.get(Organization, current_user.organization_id)
     tenant_name = org.name if org else current_user.name
     filename = f"solarize_{generation.reference_period.strftime('%Y-%m')}.pdf"
@@ -74,9 +81,3 @@ def download_pdf(
     )
 
 
-def _resolve_landlord(generation: EnergyGeneration, current_user: User, session: Session) -> str:
-    if generation.created_by:
-        creator = session.get(User, generation.created_by)
-        if creator:
-            return creator.name
-    return current_user.name
