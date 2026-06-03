@@ -16,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from database.database import get_session
+import database.database as db_module
 
 _TEST_ENGINE = create_engine(
     "sqlite://",
@@ -34,6 +35,11 @@ def reset_db():
 
 @pytest.fixture(name="client")
 def client_fixture():
+    # Patch the real engine so the app lifespan (create_all) uses the same
+    # StaticPool engine as the test sessions — prevents SQLite threading errors.
+    original_engine = db_module.engine
+    db_module.engine = _TEST_ENGINE
+
     def override_get_session():
         with Session(_TEST_ENGINE) as session:
             yield session
@@ -42,6 +48,7 @@ def client_fixture():
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client
     app.dependency_overrides.clear()
+    db_module.engine = original_engine
 
 
 @pytest.fixture(name="session")
@@ -78,10 +85,10 @@ def auth_header(client, email="user@test.com", password="Password1@"):
 
 def create_contract(client, headers, number="CTRT-001", value_kwh="0.80",
                     percentual_locador="0.30", start_date="2026-01-01"):
-    return client.post("/contratos/", json={
+    return client.post("/contracts/", json={
         "number": number,
         "description": "Test contract",
         "start_date": start_date,
         "value_kwh": value_kwh,
-        "percentual_locador": percentual_locador,
+        "landlord_percentage": percentual_locador,
     }, headers=headers)

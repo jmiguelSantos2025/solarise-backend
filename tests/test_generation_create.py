@@ -13,7 +13,7 @@ def _setup(client, number="CTRT-001", value_kwh="0.80", percentual_locador="0.30
 def _post(client, headers, contract_id="CTRT-001",
           energy="1000.0", date="2026-03-01T00:00:00"):
     return client.post("/generation/", json={
-        "contract_ID": contract_id,
+        "contract_id": contract_id,
         "generated_energy": energy,
         "date": date,
     }, headers=headers)
@@ -95,10 +95,10 @@ def test_dashboard_reflects_saved_generation(client):
     headers = _setup(client, value_kwh="0.80", percentual_locador="0.30")
     _post(client, headers, energy="1000.0", date="2026-03-01T00:00:00")
 
-    resp = client.get("/dashboard/locador", headers=headers)
+    resp = client.get("/dashboard/landlord", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["mes_atual"] is not None
-    assert data["mes_atual"]["mes"] == "2026-03"
+    assert data["current_month"] is not None
+    assert data["current_month"]["month"] == "2026-03"
     from decimal import Decimal
-    assert Decimal(str(data["mes_atual"]["valor"])) == Decimal("228.00")
+    assert Decimal(str(data["current_month"]["value"])) == Decimal("228.00")

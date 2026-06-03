@@ -66,77 +66,78 @@ def test_password_hash_and_verify():
 
 import uuid
 from datetime import date
-from database.models import GeracaoEnergia, calcular_hash
+from decimal import Decimal
+from database.models import EnergyGeneration, calculate_hash
 
 
 def test_calcular_hash_is_deterministic():
-    g = GeracaoEnergia(
+    g = EnergyGeneration(
         id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
-        contrato_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
+        contract_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
         organization_id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
-        periodo_ref=date(2026, 1, 1),
-        energia_kwh=500.0,
-        hash_anterior=None,
+        reference_period=date(2026, 1, 1),
+        energy_kwh=Decimal("500"),
+        previous_hash=None,
         hash_sha256="placeholder",
     )
-    h1 = calcular_hash(g)
-    h2 = calcular_hash(g)
+    h1 = calculate_hash(g)
+    h2 = calculate_hash(g)
     assert h1 == h2
     assert len(h1) == 64  # SHA-256 hex digest
 
 
 def test_calcular_hash_changes_with_different_energy():
-    g = GeracaoEnergia(
+    g = EnergyGeneration(
         id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
-        contrato_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
+        contract_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
         organization_id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
-        periodo_ref=date(2026, 1, 1),
-        energia_kwh=500.0,
-        hash_anterior=None,
+        reference_period=date(2026, 1, 1),
+        energy_kwh=Decimal("500"),
+        previous_hash=None,
         hash_sha256="placeholder",
     )
-    h1 = calcular_hash(g)
-    g.energia_kwh = 600.0
-    h2 = calcular_hash(g)
+    h1 = calculate_hash(g)
+    g.energy_kwh = Decimal("600")
+    h2 = calculate_hash(g)
     assert h1 != h2
 
 
 def test_calcular_hash_chaining():
     """Each record's hash includes the previous record's hash (chain integrity)."""
-    g1 = GeracaoEnergia(
+    g1 = EnergyGeneration(
         id=uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-        contrato_id=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        contract_id=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         organization_id=uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-        periodo_ref=date(2026, 1, 1),
-        energia_kwh=100.0,
-        hash_anterior=None,
+        reference_period=date(2026, 1, 1),
+        energy_kwh=Decimal("100"),
+        previous_hash=None,
         hash_sha256="placeholder",
     )
-    g1.hash_sha256 = calcular_hash(g1)
+    g1.hash_sha256 = calculate_hash(g1)
 
-    g2 = GeracaoEnergia(
+    g2 = EnergyGeneration(
         id=uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-        contrato_id=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        contract_id=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         organization_id=uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-        periodo_ref=date(2026, 2, 1),
-        energia_kwh=200.0,
-        hash_anterior=g1.hash_sha256,
+        reference_period=date(2026, 2, 1),
+        energy_kwh=Decimal("200"),
+        previous_hash=g1.hash_sha256,
         hash_sha256="placeholder",
     )
-    g2.hash_sha256 = calcular_hash(g2)
+    g2.hash_sha256 = calculate_hash(g2)
 
     assert g2.hash_sha256 != g1.hash_sha256
-    # Changing g2's hash_anterior breaks the chain
-    g2_tampered = GeracaoEnergia(
+    # Changing g2's previous_hash breaks the chain
+    g2_tampered = EnergyGeneration(
         id=g2.id,
-        contrato_id=g2.contrato_id,
+        contract_id=g2.contract_id,
         organization_id=g2.organization_id,
-        periodo_ref=g2.periodo_ref,
-        energia_kwh=g2.energia_kwh,
-        hash_anterior="0000000000000000000000000000000000000000000000000000000000000000",
+        reference_period=g2.reference_period,
+        energy_kwh=g2.energy_kwh,
+        previous_hash="0000000000000000000000000000000000000000000000000000000000000000",
         hash_sha256="placeholder",
     )
-    assert calcular_hash(g2_tampered) != g2.hash_sha256
+    assert calculate_hash(g2_tampered) != g2.hash_sha256
 
 
 # ── BUG: CORS_ORIGINS env format includes brackets ───────────────────────────

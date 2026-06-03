@@ -156,44 +156,18 @@ def _dados_table(dados: DadosPDF, valor: Decimal) -> Table:
     return t
 
 
-def _pmt_fraction() -> Table:
-    center = ParagraphStyle("fc", fontName="Helvetica", fontSize=9,
-                            textColor=_TEXT, alignment=TA_CENTER)
-    frac = Table(
-        [[Paragraph("i (1 + i)^n",  center)],
-         [Paragraph("(1 + i)^n-1", center)]],
-        colWidths=[3.0 * cm],
-    )
-    frac.setStyle(TableStyle([
-        ("LINEBELOW",     (0, 0), (0, 0), 0.8, _TEXT),
-        ("TOPPADDING",    (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
-    ]))
-    return frac
-
-
 def _left_formula_card(width: float) -> Table:
-    title_s  = ParagraphStyle("lct", fontName="Helvetica-Bold", fontSize=10, textColor=_TEXT)
-    prefix_s = ParagraphStyle("pf",  fontName="Helvetica",      fontSize=9,  textColor=_TEXT, leading=14)
-
-    formula_row = Table(
-        [[Paragraph("PMT = PV  ·", prefix_s), _pmt_fraction()]],
-        colWidths=[2.2 * cm, 3.0 * cm],
-    )
-    formula_row.setStyle(TableStyle([
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-    ]))
+    title_s   = ParagraphStyle("lct", fontName="Helvetica-Bold", fontSize=10, textColor=_TEXT)
+    formula_s = ParagraphStyle("pf",  fontName="Helvetica",      fontSize=9,  textColor=_TEXT, leading=16)
+    note_s    = ParagraphStyle("pn",  fontName="Helvetica-Oblique", fontSize=8, textColor=_MUTED, leading=12)
 
     card = Table(
-        [[Paragraph("Formula aplicada", title_s)],
-         [Spacer(1, 0.35 * cm)],
-         [formula_row]],
+        [[Paragraph("Fórmula aplicada", title_s)],
+         [Spacer(1, 0.25 * cm)],
+         [Paragraph("Valor = E × T × P × (1 − D)", formula_s)],
+         [Spacer(1, 0.1 * cm)],
+         [Paragraph("E = energia gerada (kWh)  ·  T = tarifa (R$/kWh)", note_s)],
+         [Paragraph("P = percentual do locador  ·  D = desconto SCEE (5%)", note_s)]],
         colWidths=[width],
     )
     card.setStyle(TableStyle([

@@ -6,10 +6,10 @@ from app.core.security import create_hash_password
 
 def test_register_success(client):
     resp = register_user(client)
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     data = resp.json()
     assert data["success"] is True
-    assert "registrado" in data["message"]
+    assert "registered" in data["message"]
 
 
 def test_register_duplicate_email(client):
@@ -22,7 +22,7 @@ def test_register_same_cnpj_creates_one_org(client):
     """Dois usuários com mesmo CNPJ devem compartilhar a organização existente."""
     register_user(client, email="a@test.com", name="User A")
     resp = register_user(client, email="b@test.com", name="User B")
-    assert resp.status_code == 200
+    assert resp.status_code == 201
 
 
 def test_register_weak_password_rejected(client):
@@ -113,7 +113,7 @@ def test_client_supplied_id_is_ignored(client):
         "org_cnpj": "11111111000111",
         "org_email": "test@org.com",
     })
-    assert resp.status_code == 200  # registro bem-sucedido
+    assert resp.status_code == 201  # registro bem-sucedido
 
     # O ID atribuído pelo servidor deve ser diferente do enviado pelo cliente
     headers = auth_header(client, email="test@test.com")

@@ -100,9 +100,9 @@ def run_seed():
 
         session.commit()
         print("Seed aplicado com sucesso!")
-        print("  jan/26: 36.200 kWh = R$ 8.777,55")
-        print("  fev/26: 34.850 kWh = R$ 8.452,16")
-        print("  mar/26: 38.500 kWh = R$ 9.325,50")
+        print("  jan/26: 36.200 kWh = R$ 8.769,45")
+        print("  fev/26: 34.850 kWh = R$ 8.441,66")
+        print("  mar/26: 38.500 kWh = R$ 9.326,63")
 
 
 if __name__ == "__main__":

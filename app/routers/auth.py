@@ -1,3 +1,4 @@
+import uuid as _uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -66,14 +67,15 @@ def get_user(token: Optional[str] = Depends(oauth2), session: Session = Depends(
     if "ID" not in data:
         raise HTTPException(status_code=401, detail="Malformed token.")
 
-    user = session.get(User, data["ID"])
+    user = session.get(User, _uuid.UUID(data["ID"]))
     if not user:
         raise HTTPException(status_code=401, detail="User not found.")
     return user
 
 
 @router.post("/register", response_model=Message_Response, status_code=status.HTTP_201_CREATED)
-def register(payload: Register_Request, session: Session = Depends(get_session)):
+@limiter.limit("10/minute")
+def register(request: Request, payload: Register_Request, session: Session = Depends(get_session)):
     if session.exec(select(User).where(User.email == payload.email)).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
 

@@ -11,7 +11,7 @@ def _setup_with_generation(client):
     create_contract(client, headers, number="CTRT-PDF", value_kwh="0.80",
                     percentual_locador="0.30")
     resp = client.post("/generation/", json={
-        "contract_ID": "CTRT-PDF",
+        "contract_id": "CTRT-PDF",
         "generated_energy": "1000.0",
         "date": "2026-03-01T00:00:00",
     }, headers=headers)
@@ -59,7 +59,7 @@ def test_pdf_org_scoping(client):
     create_contract(client, headers_a, number="CTRT-A", value_kwh="0.80",
                     percentual_locador="0.30")
     r = client.post("/generation/", json={
-        "contract_ID": "CTRT-A", "generated_energy": "500.0",
+        "contract_id": "CTRT-A", "generated_energy": "500.0",
         "date": "2026-03-01T00:00:00",
     }, headers=headers_a)
     geracao_id = r.json()["ID"]

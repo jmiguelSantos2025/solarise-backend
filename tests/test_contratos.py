@@ -25,14 +25,14 @@ def test_create_contract_requires_auth(client):
 def test_get_contract_success(client):
     headers = _setup(client)
     created = create_contract(client, headers).json()
-    resp = client.get(f"/contratos/{created['id']}", headers=headers)
+    resp = client.get(f"/contracts/{created['id']}", headers=headers)
     assert resp.status_code == 200
     assert resp.json()["number"] == "CTRT-001"
 
 
 def test_get_contract_not_found(client):
     headers = _setup(client)
-    resp = client.get("/contratos/00000000-0000-0000-0000-000000000000", headers=headers)
+    resp = client.get("/contracts/00000000-0000-0000-0000-000000000000", headers=headers)
     assert resp.status_code == 404
 
 
@@ -45,19 +45,19 @@ def test_get_contract_other_org_forbidden(client):
                   org_cnpj="99999999000199", org_email="b@org.com")
     headers_b = auth_header(client, email="b@test.com")
 
-    resp = client.get(f"/contratos/{contract_a['id']}", headers=headers_b)
+    resp = client.get(f"/contracts/{contract_a['id']}", headers=headers_b)
     assert resp.status_code == 403
 
 
 def test_update_contract_success(client):
     headers = _setup(client)
     created = create_contract(client, headers).json()
-    resp = client.put(f"/contratos/{created['id']}", json={
+    resp = client.put(f"/contracts/{created['id']}", json={
         "number": "CTRT-001",
         "description": "Updated description",
         "start_date": "2026-01-01",
         "value_kwh": "0.90",
-        "percentual_locador": "0.30",
+        "landlord_percentage": "0.30",
     }, headers=headers)
     assert resp.status_code == 200
     assert resp.json()["description"] == "Updated description"
@@ -65,9 +65,9 @@ def test_update_contract_success(client):
 
 def test_update_contract_not_found(client):
     headers = _setup(client)
-    resp = client.put("/contratos/00000000-0000-0000-0000-000000000000", json={
+    resp = client.put("/contracts/00000000-0000-0000-0000-000000000000", json={
         "number": "X", "start_date": "2026-01-01",
-        "value_kwh": "0.80", "percentual_locador": "0.30",
+        "value_kwh": "0.80", "landlord_percentage": "0.30",
     }, headers=headers)
     assert resp.status_code == 404
 
@@ -80,9 +80,9 @@ def test_update_contract_other_org_forbidden(client):
                   org_cnpj="99999999000199", org_email="b@org.com")
     headers_b = auth_header(client, email="b@test.com")
 
-    resp = client.put(f"/contratos/{contract_a['id']}", json={
+    resp = client.put(f"/contracts/{contract_a['id']}", json={
         "number": "CTRT-001", "start_date": "2026-01-01",
-        "value_kwh": "0.80", "percentual_locador": "0.30",
+        "value_kwh": "0.80", "landlord_percentage": "0.30",
     }, headers=headers_b)
     assert resp.status_code == 403
 
@@ -97,7 +97,7 @@ def test_duplicate_contract_number_returns_409(client):
 
 def test_list_contracts_empty(client):
     headers = _setup(client)
-    resp = client.get("/contratos/", headers=headers)
+    resp = client.get("/contracts/", headers=headers)
     assert resp.status_code == 200
     assert resp.json() == []
 
@@ -106,7 +106,7 @@ def test_list_contracts_success(client):
     headers = _setup(client)
     create_contract(client, headers, number="CTRT-001")
     create_contract(client, headers, number="CTRT-002")
-    resp = client.get("/contratos/", headers=headers)
+    resp = client.get("/contracts/", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
@@ -118,7 +118,7 @@ def test_list_contracts_success(client):
 
 
 def test_list_contracts_requires_auth(client):
-    resp = client.get("/contratos/")
+    resp = client.get("/contracts/")
     assert resp.status_code == 401
 
 
@@ -132,8 +132,8 @@ def test_list_contracts_org_isolation(client):
     headers_b = auth_header(client, email="b@test.com")
     create_contract(client, headers_b, number="ORG-B-CONTRACT")
 
-    resp_a = client.get("/contratos/", headers=headers_a)
-    resp_b = client.get("/contratos/", headers=headers_b)
+    resp_a = client.get("/contracts/", headers=headers_a)
+    resp_b = client.get("/contracts/", headers=headers_b)
 
     numbers_a = {c["number"] for c in resp_a.json()}
     numbers_b = {c["number"] for c in resp_b.json()}
@@ -180,9 +180,10 @@ def test_same_number_different_orgs_allowed(client):
 
 
 def test_percentual_locador_blocked_after_generation(client, session):
-    """Não deve ser possível alterar percentual_locador após registros de geração."""
+    """Não deve ser possível alterar landlord_percentage após registros de geração."""
     from datetime import date
-    from database.models import Contrato, GeracaoEnergia, Organization, User, calcular_hash
+    from decimal import Decimal
+    from database.models import Contract, EnergyGeneration, Organization, User, calculate_hash
     from app.core.security import create_hash_password
 
     org = Organization(name="OrgGen", cnpj="55555555000155", email="gen@org.com")
@@ -195,22 +196,22 @@ def test_percentual_locador_blocked_after_generation(client, session):
     session.add(user)
     session.flush()
 
-    c = Contrato(number="GCTRT-001", organization_id=org.id,
-                 start_date=date(2026, 1, 1), value_kwh=0.80,
-                 percentual_locador=0.30, status="active")
+    c = Contract(number="GCTRT-001", organization_id=org.id,
+                 start_date=date(2026, 1, 1), value_kwh=Decimal("0.80"),
+                 landlord_percentage=Decimal("0.30"), status="active")
     session.add(c)
     session.flush()
 
-    g = GeracaoEnergia(contrato_id=c.id, organization_id=org.id,
-                       periodo_ref=date(2026, 4, 1), energia_kwh=500.0,
-                       hash_anterior=None)
-    g.hash_sha256 = calcular_hash(g)
+    g = EnergyGeneration(contract_id=c.id, organization_id=org.id,
+                         reference_period=date(2026, 4, 1), energy_kwh=Decimal("500"),
+                         previous_hash=None, hash_sha256="")
+    g.hash_sha256 = calculate_hash(g)
     session.add(g)
     session.commit()
 
     headers = auth_header(client, email="gen@test.com")
-    resp = client.put(f"/contratos/{c.id}", json={
+    resp = client.put(f"/contracts/{c.id}", json={
         "number": "GCTRT-001", "start_date": "2026-01-01",
-        "value_kwh": "0.80", "percentual_locador": "0.50",  # alterado
+        "value_kwh": "0.80", "landlord_percentage": "0.50",
     }, headers=headers)
     assert resp.status_code == 409

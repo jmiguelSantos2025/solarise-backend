@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.routers.auth import get_user
-from app.schemas.generation import Generation_Response, GenerationRequest, PreviewRequest, PreviewResponse
+from app.schemas.generation import Generation_Response, GenerationRequest, PreviewResponse
 from database.database import get_session
 from database.models import Contract, EnergyGeneration, User
 from database.models import calculate_hash
@@ -96,8 +96,8 @@ def create_generation(data: GenerationRequest, current_user: User = Depends(get_
 
     return Generation_Response(
         ID=str(generation.id),
-        contract_ID=str(contract.id),
-        value=str(value),
+        contract_ID=contract.number,
+        value=value,
         hash_sha256=generation.hash_sha256,
         previous_hash=generation.previous_hash,
         date=datetime.combine(generation.reference_period, datetime.min.time()).replace(tzinfo=timezone.utc),

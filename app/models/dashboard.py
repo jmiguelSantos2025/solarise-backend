@@ -47,11 +47,12 @@ def landlord_dashboard(
     if not generations:
         return {"current_month": None, "historical_series": []}
 
-    monthly: dict[str, dict[str, Decimal]] = defaultdict(lambda: {"kwh": _ZERO, "value": _ZERO})
+    monthly: dict[str, dict] = defaultdict(lambda: {"kwh": _ZERO, "value": _ZERO, "hash": ""})
     for g in generations:
         month = g.reference_period.strftime("%Y-%m")
         monthly[month]["kwh"] += g.energy_kwh
         monthly[month]["value"] += _calc_value(g, contract_map[g.contract_id])
+        monthly[month]["hash"] = g.hash_sha256  # last record in period order wins
 
     sorted_months = sorted(monthly.keys())
     last_month = sorted_months[-1]
@@ -61,6 +62,7 @@ def landlord_dashboard(
             "month": last_month,
             "kwh": float(monthly[last_month]["kwh"].quantize(_QUANT_KWH, rounding=ROUND_HALF_UP)),
             "value": float(monthly[last_month]["value"].quantize(_QUANT_BRL, rounding=ROUND_HALF_UP)),
+            "hash": monthly[last_month]["hash"],
         },
         "historical_series": [
             {

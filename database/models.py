@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Column, Numeric
+from sqlalchemy import Column, Numeric, UniqueConstraint
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -42,10 +42,11 @@ class User(SQLModel, table=True):
 
 class Contract(SQLModel, table=True):
     __tablename__ = 'contracts'
+    __table_args__ = (UniqueConstraint('number', 'organization_id', name='uq_contract_number_per_org'),)
 
     id:                  uuid.UUID         = Field(default_factory=uuid.uuid4, primary_key=True)
     organization_id:     uuid.UUID         = Field(foreign_key='organizations.id')
-    number:              str               = Field(max_length=100, unique=True)
+    number:              str               = Field(max_length=100)
     description:         Optional[str]     = Field(default=None)
     start_date:          date
     end_date:            Optional[date]    = Field(default=None)
