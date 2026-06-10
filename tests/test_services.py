@@ -140,28 +140,46 @@ def test_calcular_hash_chaining():
     assert calculate_hash(g2_tampered) != g2.hash_sha256
 
 
-# ── BUG: CORS_ORIGINS env format includes brackets ───────────────────────────
+# ── CORS_ORIGINS: bracket format must be handled correctly ────────────────────
 
-def test_bug_cors_origins_with_brackets():
+def test_cors_origins_strips_brackets():
     """
-    BUG: The .env.example ships CORS_ORIGINS=[http://localhost:3000] with
-    square brackets. main.py calls settings.cors_origins.split(','), which
-    produces ["[http://localhost:3000]"]. The bracket-prefixed string is not
-    a valid origin, so CORS headers will never match and all cross-origin
-    requests will fail.
+    .env.example ships CORS_ORIGINS=[http://localhost:3000] with brackets.
+    cors_origins_list must strip them so the real origin matches.
     """
-    raw = "[http://localhost:3000]"
-    origins = raw.split(",")
-    # The parsed origin still has brackets
-    assert origins[0] == "[http://localhost:3000]"
-    # A browser sends the plain origin without brackets:
-    browser_origin = "http://localhost:3000"
-    assert browser_origin not in origins, (
-        "BUG CONFIRMED: When CORS_ORIGINS is set with brackets as shown in "
-        ".env.example, the origin list contains '[http://localhost:3000]' "
-        "instead of 'http://localhost:3000'. CORS will be broken for all "
-        "requests from the frontend."
-    )
+    from unittest.mock import patch
+    from app.core.config import Settings
+
+    with patch.dict("os.environ", {
+        "DATABASE_URL": "sqlite://",
+        "JWT_SECRET": "testsecretkey12345678901234567890xx",
+        "CORS_ORIGINS": "[http://localhost:3000]",
+    }):
+        s = Settings()
+        origins = s.cors_origins_list
+        assert "http://localhost:3000" in origins, (
+            f"Bracket stripping falhou — lista resultante: {origins}"
+        )
+        assert not any(o.startswith("[") for o in origins), (
+            f"Brackets ainda presentes na lista: {origins}"
+        )
+
+
+def test_cors_origins_multiple_with_brackets():
+    """Lista com múltiplos origins em formato bracket deve ser parseada corretamente."""
+    from unittest.mock import patch
+    from app.core.config import Settings
+
+    with patch.dict("os.environ", {
+        "DATABASE_URL": "sqlite://",
+        "JWT_SECRET": "testsecretkey12345678901234567890xx",
+        "CORS_ORIGINS": "[http://localhost:3000,http://localhost:8080]",
+    }):
+        s = Settings()
+        origins = s.cors_origins_list
+        assert "http://localhost:3000" in origins
+        assert "http://localhost:8080" in origins
+        assert len(origins) == 2
 
 
 # ── Health endpoint ───────────────────────────────────────────────────────────

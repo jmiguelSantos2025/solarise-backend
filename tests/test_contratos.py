@@ -215,3 +215,53 @@ def test_percentual_locador_blocked_after_generation(client, session):
         "value_kwh": "0.80", "landlord_percentage": "0.50",
     }, headers=headers)
     assert resp.status_code == 409
+
+
+def test_value_kwh_can_change_after_generation(client, session):
+    """
+    GAP DE NEGÓCIO DOCUMENTADO: value_kwh pode ser alterado após gerações existirem.
+    Apenas landlord_percentage é protegido. Alterar value_kwh retroativamente
+    corrompe o cálculo financeiro de PDFs históricos.
+
+    Este teste documenta o comportamento atual (permite a mudança).
+    Se o comportamento for corrigido para bloquear, este teste deve ser atualizado para 409.
+    """
+    from datetime import date
+    from decimal import Decimal
+    from database.models import Contract, EnergyGeneration, Organization, User, calculate_hash
+    from app.core.security import create_hash_password
+
+    org = Organization(name="VkwhOrg", cnpj="88800000000188", email="vkwh@org.com")
+    session.add(org)
+    session.flush()
+
+    user = User(email="vkwh@test.com", name="Vkwh User", role="admin",
+                organization_id=org.id, password_hash=create_hash_password("Password1@"))
+    session.add(user)
+    session.flush()
+
+    c = Contract(number="VKWH-001", organization_id=org.id,
+                 start_date=date(2026, 1, 1), value_kwh=Decimal("0.80"),
+                 landlord_percentage=Decimal("0.30"), status="active")
+    session.add(c)
+    session.flush()
+
+    g = EnergyGeneration(contract_id=c.id, organization_id=org.id,
+                         reference_period=date(2026, 4, 1), energy_kwh=Decimal("500"),
+                         previous_hash=None, hash_sha256="")
+    g.hash_sha256 = calculate_hash(g)
+    session.add(g)
+    session.commit()
+
+    headers = auth_header(client, email="vkwh@test.com")
+    # value_kwh mudou de 0.80 para 1.20 — landlord_percentage permanece igual
+    resp = client.put(f"/contracts/{c.id}", json={
+        "number": "VKWH-001", "start_date": "2026-01-01",
+        "value_kwh": "1.20", "landlord_percentage": "0.30",
+    }, headers=headers)
+    # Comportamento atual: 200 (permite a mudança — gap de negócio documentado)
+    assert resp.status_code == 200, (
+        "ATENÇÃO: value_kwh foi bloqueado após geração existir. "
+        "Se intencional, atualizar este teste para 409 e documentar a proteção."
+    )
+    assert resp.json()["value_kwh"] == "1.2000"

@@ -102,3 +102,15 @@ def test_dashboard_reflects_saved_generation(client):
     assert data["current_month"]["month"] == "2026-03"
     from decimal import Decimal
     assert Decimal(str(data["current_month"]["value"])) == Decimal("228.00")
+
+
+def test_create_generation_duplicate_period_returns_409(client):
+    """Registrar geração com mesmo contrato e mesmo período deve retornar 409."""
+    headers = _setup(client)
+    r1 = _post(client, headers, energy="1000.0", date="2026-03-01T00:00:00")
+    assert r1.status_code == 201
+
+    r2 = _post(client, headers, energy="2000.0", date="2026-03-01T00:00:00")
+    assert r2.status_code == 409, (
+        f"Duplicata de período deveria retornar 409, recebeu {r2.status_code}"
+    )
